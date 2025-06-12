@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAudioRecorder, RecordStatus } from "@/hooks/use-audio-recorder";
-import { Button } from "@/components/ui/button";
+import { Button } from "./ui/button";
 
 export function VoiceRecorder() {
   const supabase = createClient();
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const {
     startRecording,
     stopRecording,
+    cancelRecording,
     status,
     blob,
   } = useAudioRecorder({
@@ -20,45 +23,77 @@ export function VoiceRecorder() {
     channelsCount: 1,
   });
 
-  useEffect(() => {
-    const uploadAudio = async () => {
-      if (!blob) return;
+  const handleConfirmUpload = async () => {
+    if (!blob) return;
+    setIsUploading(true);
+    const filename = `voice-${Date.now()}.wav`;
 
-      const filename = `voice-${Date.now()}.wav`;
+    const { error } = await supabase.storage
+      .from("voice-recordings")
+      .upload(filename, blob, {
+        contentType: "audio/wav",
+      });
 
-      const { error } = await supabase.storage
-        .from("voice-recordings")
-        .upload(filename, blob, {
-          contentType: "audio/wav",
-        });
+    if (error) {
+      console.error("Upload failed:", error.message);
+      setIsUploading(false);
+      return;
+    }
 
-      if (error) {
-        console.error("Upload failed:", error.message);
-        return;
-      }
+    const { data } = supabase.storage
+      .from("voice-recordings")
+      .getPublicUrl(filename);
 
-      const { data } = supabase.storage
-        .from("voice-recordings")
-        .getPublicUrl(filename);
+    setUploadUrl(data.publicUrl);
+    setIsPreviewing(false);
+    setIsUploading(false);
+  };
 
-      setUploadUrl(data.publicUrl);
-    };
+  const handleDiscard = () => {
+    setIsPreviewing(false);
+    setUploadUrl(null);
+    cancelRecording?.();
+  };
 
-    uploadAudio();
-  }, [blob, supabase]);
+  const handleStop = () => {
+    stopRecording();
+    setIsPreviewing(true);
+  };
 
   return (
     <div className="space-y-4">
-      <Button onClick={status === RecordStatus.Recording ? stopRecording : startRecording}>
-        {status === RecordStatus.Recording ? "Stop Recording" : "Start Recording"}
-      </Button>
+      {!isPreviewing && (
+        <Button
+          onClick={
+            status === RecordStatus.Recording ? handleStop : startRecording
+          }
+          disabled={isUploading}
+        >
+          {status === RecordStatus.Recording ? "Stop Recording" : "Start Recording"}
+        </Button>
+      )}
 
-      <div>Status: {RecordStatus[status ?? 0]}</div>
+      {isPreviewing && blob && (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">Preview your recording:</p>
+          <audio controls src={URL.createObjectURL(blob)} className="w-full" />
 
-      {uploadUrl && (
-        <audio controls src={uploadUrl} className="w-full">
-          Your browser does not support the audio element.
-        </audio>
+          <div className="flex gap-2">
+            <Button variant="destructive" onClick={handleDiscard} disabled={isUploading}>
+              Discard
+            </Button>
+            <Button onClick={handleConfirmUpload} disabled={isUploading}>
+              {isUploading ? "Uploading..." : "Send"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {uploadUrl && !isPreviewing && (
+        <div>
+          <p className="text-sm text-green-700">Uploaded:</p>
+          <audio controls src={uploadUrl} className="w-full" />
+        </div>
       )}
     </div>
   );
