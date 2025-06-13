@@ -5,12 +5,14 @@ import { useVoiceVisualizer, VoiceVisualizer } from "react-voice-visualizer";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils"; // optional className helper
+import { Play, Pause, X } from "lucide-react";
+
 import "./voice-visualizer-hide-buttons.css";
 
 export function VoiceRecorder() {
   const supabase = createClient();
 
-  const recorderControls = useVoiceVisualizer()
+  const recorderControls = useVoiceVisualizer();
 
   const {
     startRecording,
@@ -20,10 +22,12 @@ export function VoiceRecorder() {
     isAvailableRecordedAudio,
     clearCanvas,
     startAudioPlayback,
-    stopAudioPlayback
+    stopAudioPlayback,
   } = recorderControls;
 
-  const [step, setStep] = useState<"idle" | "recording" | "preview" | "uploaded">("idle");
+  const [step, setStep] = useState<
+    "idle" | "recording" | "preview" | "uploaded"
+  >("idle");
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -92,6 +96,7 @@ export function VoiceRecorder() {
         isDownloadAudioButtonShown={false}
         isControlPanelShown={false}
         isProgressIndicatorShown={true}
+        isProgressIndicatorTimeShown={false}
         isDefaultUIShown={false}
       />
 
@@ -100,23 +105,24 @@ export function VoiceRecorder() {
         <div className="relative flex items-center justify-center gap-4">
           {step === "preview" && (
             <>
-              {/* Left: Play */}
+              {/* Left: Play/Pause */}
               <Button
-                size="sm"
+                size="icon"
                 variant="ghost"
                 onClick={() => {
-                  if (audioRef.current) {
-                    if (audioRef.current.paused) {
-                      startAudioPlayback();
-                    } else {
-                      stopAudioPlayback();
-                    }
+                  if (audioRef.current?.paused) {
+                    startAudioPlayback();
+                  } else {
+                    stopAudioPlayback();
                   }
-                }
-                }
+                }}
                 className="text-[#ed1d9d]"
               >
-                ▶️
+                {audioRef.current?.paused ? (
+                  <Play className="w-5 h-5" />
+                ) : (
+                  <Pause className="w-5 h-5" />
+                )}
               </Button>
             </>
           )}
@@ -129,7 +135,7 @@ export function VoiceRecorder() {
               "transition-colors duration-300",
               step === "idle" || step === "recording"
                 ? "bg-[#ed1d9d] hover:bg-[#c51480]"
-                : "bg-green-600 hover:bg-green-700"
+                : "bg-[#a1df3d] hover:bg-[#90c935] text-black"
             )}
           >
             {step === "idle" && "Record"}
@@ -141,12 +147,12 @@ export function VoiceRecorder() {
             <>
               {/* Right: Cancel */}
               <Button
-                size="sm"
+                size="icon"
                 variant="ghost"
                 onClick={handleRestart}
                 className="text-[#ed1d9d]"
               >
-                ❌
+                <X className="w-5 h-5" />
               </Button>
             </>
           )}
@@ -156,13 +162,18 @@ export function VoiceRecorder() {
       {/* Uploaded success message */}
       {step === "uploaded" && uploadUrl && (
         <div className="text-center space-y-2">
-          <p className="text-green-600 font-medium">✅ Uploaded successfully!</p>
           <Button
             onClick={handleRestart}
-            className="mt-4 bg-[#ed1d9d] text-white rounded-full"
+            className={cn(
+              "rounded-full w-24 h-24 text-white text-lg font-semibold",
+              "transition-colors duration-300 bg-[#ed1d9d] hover:bg-[#c51480]"
+            )}
           >
             Restart
           </Button>
+          <p className="text-[#a1df3d] font-medium">
+            Uploaded successfully!
+          </p>
         </div>
       )}
     </div>
