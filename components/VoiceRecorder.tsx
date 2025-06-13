@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useVoiceVisualizer, VoiceVisualizer } from "react-voice-visualizer";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils"; // optional className helper
 import { Play, Pause, X } from "lucide-react";
+import dynamic from "next/dynamic";
+
+// ✅ Keep the hook imported normally (hooks must be synchronous)
+import { useVoiceVisualizer } from "react-voice-visualizer";
+
+// ✅ Dynamically import only the component
+const VoiceVisualizer = dynamic(
+  () => import("react-voice-visualizer").then((mod) => mod.VoiceVisualizer),
+  { ssr: false }
+);
 
 import "./voice-visualizer-hide-buttons.css";
 
