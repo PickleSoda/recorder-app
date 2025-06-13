@@ -1,37 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useVoiceVisualizer, VoiceVisualizer } from "react-voice-visualizer";
 import { createClient } from "@/lib/supabase/client";
-import { useAudioRecorder, RecordStatus } from "@/hooks/use-audio-recorder";
 import { Button } from "./ui/button";
 
 export function VoiceRecorder() {
   const supabase = createClient();
-  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
+
+  const recorderControls = useVoiceVisualizer();
+  const { recordedBlob, isAvailableRecordedAudio } = recorderControls;
+
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
 
-  const {
-    startRecording,
-    stopRecording,
-    cancelRecording,
-    status,
-    blob,
-  } = useAudioRecorder({
-    sampleRate: 16000,
-    sampleBits: 16,
-    channelsCount: 1,
-  });
+  // When recording is stopped, enable preview step
+  useEffect(() => {
+    if (recordedBlob && isAvailableRecordedAudio) {
+      setIsPreviewing(true);
+    }
+  }, [recordedBlob, isAvailableRecordedAudio]);
 
-  const handleConfirmUpload = async () => {
-    if (!blob) return;
+  const handleUpload = async () => {
+    if (!recordedBlob) return;
+
     setIsUploading(true);
-    const filename = `voice-${Date.now()}.wav`;
+    const filename = `voice-${Date.now()}.webm`;
 
     const { error } = await supabase.storage
       .from("voice-recordings")
-      .upload(filename, blob, {
-        contentType: "audio/wav",
+      .upload(filename, recordedBlob, {
+        contentType: "audio/webm",
       });
 
     if (error) {
@@ -49,40 +49,28 @@ export function VoiceRecorder() {
     setIsUploading(false);
   };
 
-  const handleDiscard = () => {
-    setIsPreviewing(false);
-    setUploadUrl(null);
-    cancelRecording?.();
-  };
-
-  const handleStop = () => {
-    stopRecording();
-    setIsPreviewing(true);
-  };
 
   return (
-    <div className="space-y-4">
-      {!isPreviewing && (
-        <Button
-          onClick={
-            status === RecordStatus.Recording ? handleStop : startRecording
-          }
-          disabled={isUploading}
-        >
-          {status === RecordStatus.Recording ? "Stop Recording" : "Start Recording"}
-        </Button>
-      )}
+    <div className="flex flex-col items-center space-y-6">
+      <VoiceVisualizer
+        controls={recorderControls}
+        height={50}
+        width="100%"
+        mainBarColor="#ed1d9d" // red
+        secondaryBarColor="#ed1d9d"
+        barWidth={5}
+        gap={1}
+        speed={2}
+        isDownloadAudioButtonShown={false}
+        isControlPanelShown={true}
+        isProgressIndicatorShown={true}
+        isDefaultUIShown={false}
+      />
 
-      {isPreviewing && blob && (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-600">Preview your recording:</p>
-          <audio controls src={URL.createObjectURL(blob)} className="w-full" />
-
-          <div className="flex gap-2">
-            <Button variant="destructive" onClick={handleDiscard} disabled={isUploading}>
-              Discard
-            </Button>
-            <Button onClick={handleConfirmUpload} disabled={isUploading}>
+      {isPreviewing && recordedBlob && (
+        <div className="space-y-3 w-full max-w-md">
+          <div className="flex justify-center gap-4">
+            <Button onClick={handleUpload} disabled={isUploading} className="rounded-full p-30 bg-[#ed1d9d] text-white">
               {isUploading ? "Uploading..." : "Send"}
             </Button>
           </div>
@@ -90,9 +78,8 @@ export function VoiceRecorder() {
       )}
 
       {uploadUrl && !isPreviewing && (
-        <div>
-          <p className="text-sm text-green-700">Uploaded:</p>
-          <audio controls src={uploadUrl} className="w-full" />
+        <div className="space-y-2 text-center">
+          <p className="text-green-700">Uploaded successfully!</p>
         </div>
       )}
     </div>
