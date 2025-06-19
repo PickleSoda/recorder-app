@@ -20,7 +20,7 @@ export default async function ProtectedPage() {
       .map(async (f) => {
         const { data } = await supabase.storage
           .from("voice-recordings")
-          .createSignedUrl(f.name, 60); // valid for 60 seconds
+          .createSignedUrl(f.name, 60 * 10);
         const signedUrl = data?.signedUrl ?? "";
         console.log("Signed URL for", f.name, ":", signedUrl);
         return { name: f.name, url: signedUrl };
